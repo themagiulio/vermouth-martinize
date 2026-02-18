@@ -20,7 +20,6 @@ import numpy as np
 from .molecule import attributes_match
 
 
-# TODO: Make that list part of the force fields
 PROTEIN_RESIDUES = set(('ALA', 'ARG', 'ASP', 'ASN', 'CYS',
                         'GLU', 'GLN', 'GLY', 'HIS', 'ILE',
                         'LEU', 'LYS', 'MET', 'PHE', 'PRO',
@@ -32,10 +31,11 @@ PROTEIN_RESIDUES = set(('ALA', 'ARG', 'ASP', 'ASN', 'CYS',
 
 def is_protein(molecule):
     """
-    Return True if all the residues in the molecule are protein residues.
+    Returns True if all the residues in the molecule are protein residues.
 
-    The function tests if the residue name of all the atoms in the input
-    molecule are in ``PROTEIN_RESIDUES``.
+    The function tests whether all atoms in the input molecule belong to
+    residues listed in ``PROTEIN_RESIDUES`` or to force field protein
+    residues.
 
     Parameters
     ----------
@@ -46,8 +46,23 @@ def is_protein(molecule):
     -------
     bool
     """
+    # Get force field protein residues
+    # Check if residue is protein residue by looking for N, CA and C atoms.
+    protein_residues = set()
+
+    if molecule.force_field is not None:
+        for resname, block in molecule.force_field.blocks.items():
+            node_names = set(block.nodes)
+            is_aa = {'N', 'CA', 'C'}.issubset(node_names)
+
+            if is_aa:
+                protein_residues.add(resname)
+
+    # Add standard protein residue names
+    protein_residues = frozenset(protein_residues).union(PROTEIN_RESIDUES)
+
     return all(
-        molecule.nodes[n_idx].get('resname') in PROTEIN_RESIDUES
+        molecule.nodes[n_idx].get('resname') in protein_residues
         for n_idx in molecule
     )
 
