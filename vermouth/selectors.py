@@ -19,7 +19,6 @@ protein backbones.
 import numpy as np
 from .molecule import attributes_match
 
-
 PROTEIN_RESIDUES = set(('ALA', 'ARG', 'ASP', 'ASN', 'CYS',
                         'GLU', 'GLN', 'GLY', 'HIS', 'ILE',
                         'LEU', 'LYS', 'MET', 'PHE', 'PRO',
@@ -29,13 +28,38 @@ PROTEIN_RESIDUES = set(('ALA', 'ARG', 'ASP', 'ASN', 'CYS',
                         'GLH', 'LYN'))
 
 
+def has_category(block, category):
+    """
+    Returns True if the block belongs to the given category.
+
+    Parameters
+    ----------
+    block: Block
+        The block to test.
+    category: str
+        The category to check for.
+
+    Returns
+    -------
+    bool
+    """
+    if block is None:
+        return False
+
+    block_category = block.meta.get('category', None)
+
+    if block_category is None:
+        return False
+    elif isinstance(block_category, str):
+        return block_category == category
+    else:
+        # it's a list of multiple categories
+        return category in block_category
+
+
 def is_protein(molecule):
     """
     Returns True if all the residues in the molecule are protein residues.
-
-    The function tests whether all atoms in the input molecule belong to
-    residues listed in ``PROTEIN_RESIDUES`` or to force field protein
-    residues.
 
     Parameters
     ----------
@@ -46,25 +70,21 @@ def is_protein(molecule):
     -------
     bool
     """
-    # Get force field protein residues
-    # Check if residue is protein residue by looking for N, CA and C atoms.
-    protein_residues = set()
-
     if molecule.force_field is not None:
-        for resname, block in molecule.force_field.blocks.items():
-            node_names = set(block.nodes)
-            is_aa = {'N', 'CA', 'C'}.issubset(node_names)
-
-            if is_aa:
-                protein_residues.add(resname)
-
-    # Add standard protein residue names
-    protein_residues = frozenset(protein_residues).union(PROTEIN_RESIDUES)
-
-    return all(
-        molecule.nodes[n_idx].get('resname') in protein_residues
-        for n_idx in molecule
-    )
+        return all(
+            has_category(
+                molecule.force_field.blocks.get(
+                    molecule.nodes[n_idx].get('resname')
+                ),
+                'protein'
+            )
+            for n_idx in molecule
+        )
+    else:
+        return all(
+            molecule.nodes[n_idx].get('resname') in PROTEIN_RESIDUES
+            for n_idx in molecule
+        )
 
 
 def select_all(_, __="_"):
